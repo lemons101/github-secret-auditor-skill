@@ -12,5 +12,6 @@
 8. 生成 `security-report.md`。
 9. 最后输出修改文件清单、风险摘要、测试/静态检查结果和 Git Diff 摘要。
 10. 不要 push，不要创建 PR，不要输出完整密钥。
+11. 如果无法写文件、无法修改文件或无法生成 `security-report.md`，必须明确返回具体阻塞原因，例如 ACP permission denied、文件系统权限不足、Claude Code 工具权限不足或当前会话只读。不要只做分析。
 
 如果疑似真实密钥已经进入 Git 历史，请在报告中标记为 `needs_rotation`，提醒用户人工吊销并轮换。
