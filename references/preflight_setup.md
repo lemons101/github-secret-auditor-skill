@@ -4,7 +4,7 @@
 
 ## 目标
 
-让 OpenClaw 能调度 Claude Code，并允许 Claude Code 在授权仓库目录内完成必要的文件修改。自动化默认使用 Claude Code headless CLI；飞书交互演示可使用 ACP。
+让 OpenClaw 能通过 ACP 调度 Claude Code，并允许 Claude Code 在授权仓库目录内完成必要的文件修改。飞书交互和后台自动化都应复用同一套 ACP 调度能力。
 
 ## 推荐目录
 
@@ -15,20 +15,9 @@
 /srv/openclaw-runner/reports
 ```
 
-## Claude Code CLI 检查
-
-后台任务、Heartbeat、cron 等无人值守场景应优先检查 Claude Code CLI：
-
-```bash
-claude --version
-claude -p "只回复 OK"
-```
-
-如果上述命令可用，Skill 可走 `claude-cli` 通道，不需要依赖聊天 slash command。
-
 ## ACP 健康检查
 
-ACP 仅作为交互演示通道。在 OpenClaw/飞书聊天中执行：
+在 OpenClaw/飞书聊天对话框中执行。`/acp ...` 是聊天 slash command，不是 shell 命令，不要在 SSH/bash/PowerShell 里执行：
 
 ```text
 /acp doctor
@@ -42,9 +31,19 @@ registeredBackend: acpx
 healthy: yes
 ```
 
+继续验证可创建 Claude Code 会话：
+
+```text
+/acp spawn claude --mode persistent --thread off --cwd /srv/openclaw-runner/repos/agentic-ai
+```
+
+应返回完整 `session-key`，例如 `agent:claude:acp:...`。
+
+后台任务不应把 `/acp ...` 当 shell 命令执行；应调用 OpenClaw 内部 ACP service，或把 ACP 指令作为聊天消息提交给同一套 slash command router。
+
 ## 写入权限说明
 
-ACP 会话通常是非交互式运行。如果权限策略过于保守，Claude Code 可能可以搜索和分析仓库，但无法执行 `Edit`、`Write` 或修改授权仓库文件。CLI 通道则主要依赖当前运行用户对仓库目录的文件系统写权限。
+ACP 会话通常是非交互式运行。如果权限策略过于保守，Claude Code 可能可以搜索和分析仓库，但无法执行 `Edit`、`Write` 或修改授权仓库文件。
 
 课程演示环境可以在明确授权的仓库范围内，临时使用更宽松的 ACPX 权限策略。该配置是持久写入 OpenClaw 配置文件的，不是一次性命令。任务完成后应恢复保守策略。
 
@@ -61,7 +60,7 @@ openclaw config set plugins.entries.acpx.config.nonInteractivePermissions fail
 /acp doctor
 ```
 
-然后重新创建 Claude ACP 会话。旧 session 可能沿用旧权限。CLI 通道不需要 session-key。
+然后重新创建 Claude ACP 会话。旧 session 可能沿用旧权限。
 
 ## 恢复保守策略
 
@@ -79,4 +78,4 @@ openclaw config set plugins.entries.acpx.config.nonInteractivePermissions deny
 - 不要把 ACP 会话 `--cwd` 指向 `/root`、用户 home、系统目录或包含生产密钥的目录。
 - 只把 `--cwd` 指向明确授权的仓库，例如 `/srv/openclaw-runner/repos/agentic-ai`。
 - 即使使用 `approve-all`，任务 prompt 仍必须禁止读取 `.env`、私钥、Cookie、生产配置和用户个人目录。
-- 如果发现真实密钥，代码修复不等于密钥安全，必须人工吊销并轮换。
+- 如果发现真实密钥进入 Git 历史，代码修复、commit、push 和飞书报告仍应自动完成；同时在飞书报告风险备注中记录风险类型、疑似文件、脱敏片段和建议动作。
