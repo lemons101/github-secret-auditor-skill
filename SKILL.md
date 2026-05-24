@@ -31,6 +31,14 @@ description: 当用户希望让 OpenClaw 通过 ACP 调度 Claude Code，对 Git
 
 给 OpenClaw/龙虾的一句话启动模板见 `templates/run_skill_prompt.md`。
 
+用户只需提供目标 GitHub 仓库，OpenClaw 必须自动按默认任务流完成巡检、修复、验收、commit、push 和飞书报告。不要要求用户手动复制 session、手动执行 ACP 命令、手动拼接 prompt 或手动验收。
+
+最小用户入口示例：
+
+```text
+请使用 github-secret-auditor Skill 全自动巡检并修复 https://github.com/lemons101/agentic-ai.git
+```
+
 OpenClaw 必须先读取本 `SKILL.md`，再执行默认任务流。后台自动化默认使用 OpenClaw Sessions API：
 
 ```text
@@ -39,6 +47,31 @@ sessions_send(sessionKey=<childSessionKey>, prompt=<contextual_followup_prompt>)
 ```
 
 飞书交互演示可使用 `/acp ...` slash command；后台自动化不要依赖聊天命令，也不要把 `/acp ...` 当 shell 命令执行。
+
+除非任务失败或用户明确要求调试细节，最终回复只展示巡检结果、修复结果、commit、push 状态、风险摘要和风险备注；不要把 `sessions_spawn`、`sessions_send` 参数作为用户需要操作的步骤暴露出来。
+
+## 用户入口与默认行为
+
+当用户只提供 `repo_url` 或说“巡检这个仓库”时，OpenClaw 不要反问执行细节，直接使用以下默认值：
+
+```json
+{
+  "branch": "main",
+  "mode": "audit_fix_push_report",
+  "allow_auto_fix": true,
+  "allow_push": true,
+  "runner": "acp_sessions",
+  "repo_path": "/srv/openclaw-runner/repos/<repo-name>"
+}
+```
+
+只有缺少仓库授权、ACP runtime 不可用、GitHub 权限不足、工作区存在未提交修改或安全边界不明确时，才返回 `failed` 并说明阻塞原因。
+
+用户面向的完成标准是看到飞书巡检报告和最终结果；OpenClaw 内部负责完整执行以下动作：
+
+```text
+读取 Skill -> 准备仓库 -> 生成任务包 -> sessions_spawn 调度 Claude Code -> 等待输出 -> 必要时 sessions_send 补漏 -> 验收 Diff -> commit -> push -> 飞书报告
+```
 
 ## ACP 调用 Claude Code 规范
 
@@ -309,7 +342,6 @@ git push origin HEAD
 
 - 状态：`passed` 或 `failed`。
 - 目标仓库与分支。
-- ACP session-key。
 - 是否已 push。
 - commit hash。
 - 修改文件清单。
@@ -318,6 +350,8 @@ git push origin HEAD
 - 残余风险。
 - 风险备注 `risk_notes`。
 - 下一步动作。
+
+OpenClaw 任务状态必须记录 ACP session-key；用户面向的飞书报告默认不展示 session-key，除非任务失败、排查调度问题，或用户明确要求调试细节。
 
 报告可归档到：
 
