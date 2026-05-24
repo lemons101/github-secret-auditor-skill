@@ -4,7 +4,7 @@
 
 ## 目标
 
-让 OpenClaw 能通过 ACP 调度 Claude Code，并允许 Claude Code 在授权仓库目录内完成必要的文件修改。飞书交互和后台自动化都应复用同一套 ACP 调度能力。
+让 OpenClaw 能通过 ACP 调度 Claude Code，并允许 Claude Code 在授权仓库目录内完成必要的文件修改。飞书交互可以使用 `/acp ...` slash command；后台自动化应使用 OpenClaw Sessions API 调度同一个 ACP runtime。
 
 ## 推荐目录
 
@@ -15,7 +15,7 @@
 /srv/openclaw-runner/reports
 ```
 
-## ACP 健康检查
+## 飞书交互健康检查
 
 在 OpenClaw/飞书聊天对话框中执行。`/acp ...` 是聊天 slash command，不是 shell 命令，不要在 SSH/bash/PowerShell 里执行：
 
@@ -39,7 +39,62 @@ healthy: yes
 
 应返回完整 `session-key`，例如 `agent:claude:acp:...`。
 
-后台任务不应把 `/acp ...` 当 shell 命令执行；应调用 OpenClaw 内部 ACP service，或把 ACP 指令作为聊天消息提交给同一套 slash command router。
+这一步只用于证明飞书交互链路可用，不是后台 Skill runner 的默认调用方式。
+
+## 后台 Sessions API 配置
+
+后台任务不依赖 `/acp ...` 聊天命令，也不需要把 slash command 伪造成 shell 或聊天消息。后台默认使用 Sessions API：
+
+```text
+sessions_spawn(runtime="acp", agentId="claude", mode="run", thread=false, cwd=<repo_path>, prompt=<task_prompt>)
+```
+
+如果需要向同一个 child session 追加补漏任务，使用：
+
+```text
+sessions_send(sessionKey=<childSessionKey>, prompt=<explicit_context_prompt>)
+```
+
+启用后台多轮投递前，确认以下配置：
+
+```bash
+openclaw config set tools.sessions.visibility all
+openclaw config set tools.agentToAgent.enabled true
+```
+
+`sessions_spawn` 成功后应返回：
+
+```json
+{
+  "status": "accepted",
+  "childSessionKey": "agent:claude:acp:...",
+  "mode": "run"
+}
+```
+
+注意：`childSessionKey` 是后续投递目标，不等于 Claude Code 一定保留上一轮上下文。使用 `sessions_send` 时，prompt 必须显式包含上一轮输出、当前 Git Diff、验收缺失项和本轮目标。
+
+推荐只读验证：
+
+```text
+sessions_spawn(
+  runtime="acp",
+  agentId="claude",
+  mode="run",
+  thread=false,
+  cwd="/srv/openclaw-runner/repos/agentic-ai",
+  prompt="请输出 pwd 和 git status --short，不要修改文件。"
+)
+```
+
+如果需要验证补漏投递：
+
+```text
+sessions_send(
+  sessionKey="<childSessionKey>",
+  prompt="只读测试：请再次输出 pwd 和 git status --short，不要修改文件。"
+)
+```
 
 ## 写入权限说明
 

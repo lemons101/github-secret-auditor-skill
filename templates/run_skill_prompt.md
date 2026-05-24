@@ -21,17 +21,19 @@ https://github.com/lemons101/agentic-ai.git
 硬性要求：
 
 1. 必须使用 Skill 中定义的流程，不要用 OpenClaw 自己手工替代 Claude Code 的代码巡检和修复。
-2. 必须通过 ACP 调度 Claude Code。`/acp doctor`、`/acp spawn`、`/acp steer` 是 OpenClaw 对话框 slash command，不是 shell 命令；必须作为聊天消息发送给 OpenClaw 对话/消息路由执行。
-3. 在对话框或同一 slash command router 中按顺序执行：`/acp doctor` -> `/acp spawn claude --mode persistent --thread off --cwd /srv/openclaw-runner/repos/agentic-ai` -> `/acp steer --session <session-key> ...`。
-4. 必须记录完整 `session-key`，格式为 `agent:claude:acp:...`。如果已有可用 session，可以复用该 session 直接 steer。
-5. 如果当前是后台任务，必须复用 OpenClaw 的 ACP 后端能力，或把 `/acp ...` 作为聊天消息提交给同一套 slash command router；不要写入 shell、subprocess、SSH 命令或脚本里执行。
-6. 如果 ACP 无法创建 Claude Code session，必须返回 `failed` 并说明 ACP 阻塞原因；不要改用 OpenClaw 手工修复。
-7. 不要把 Claude Code CLI 作为本 Skill 的常规降级路径。
-8. Claude Code 只负责本地仓库修复，不要在 Claude Code 会话内 push，不要创建 PR，不要输出完整密钥。
-9. OpenClaw 在验收通过后执行 commit 和 push。
-10. 不要 force push，不要清理 Git 历史，不要自动合并分支。
-11. 不要在 GitHub 仓库中提交 `security-report.md`；巡检报告通过飞书发送，必要时归档到 `/srv/openclaw-runner/reports/agentic-ai-security-report.md`。
-12. 如果发现疑似真实密钥已进入 Git 历史，继续完成自动修复、commit、push 和飞书报告；不要因此把任务停在人工审核状态，只需在飞书报告的风险备注中记录风险类型、疑似文件、脱敏片段和建议动作。
+2. 后台自动化必须通过 OpenClaw Sessions API 调度 Claude Code，不要使用聊天 slash command 作为后台默认路径。
+3. 第一轮必须调用 `sessions_spawn(runtime="acp", agentId="claude", mode="run", thread=false, cwd="/srv/openclaw-runner/repos/agentic-ai", prompt=<完整任务 prompt>)`。
+4. `<完整任务 prompt>` 必须包含任务包路径、`templates/acp_steer_prompt.md` 的任务要求、目标仓库路径、禁止读取范围和输出格式要求；不要把修复限定成固定文件模板。
+5. 必须记录返回的完整 `childSessionKey`，格式为 `agent:claude:acp:...`，并在最终报告中作为 Claude Code session 输出。
+6. 如果需要第二轮补漏，使用 `sessions_send(sessionKey=<childSessionKey>, prompt=<显式上下文 follow-up prompt>)`；follow-up prompt 必须带上上一轮输出、当前 git diff、验收缺失项和本轮目标，不要假设 Claude 自动记得上一轮。
+7. `/acp doctor`、`/acp spawn`、`/acp steer` 仅用于飞书交互演示；它们不是 shell 命令，不要写入 bash/SSH/subprocess。
+8. 如果 `sessions_spawn` 无法创建 Claude Code child session，必须返回 `failed` 并说明 ACP 阻塞原因；不要改用 OpenClaw 手工修复。
+9. 不要把 Claude Code CLI 作为本 Skill 的常规降级路径。
+10. Claude Code 只负责本地仓库修复，不要在 Claude Code 会话内 push，不要创建 PR，不要输出完整密钥。
+11. OpenClaw 在验收通过后执行 commit 和 push。
+12. 不要 force push，不要清理 Git 历史，不要自动合并分支。
+13. 不要在 GitHub 仓库中提交 `security-report.md`；巡检报告通过飞书发送，必要时归档到 `/srv/openclaw-runner/reports/agentic-ai-security-report.md`。
+14. 如果发现疑似真实密钥已进入 Git 历史，继续完成自动修复、commit、push 和飞书报告；不要因此把任务停在人工审核状态，只需在飞书报告的风险备注中记录风险类型、疑似文件、脱敏片段和建议动作。
 
 最终飞书回复格式：
 
