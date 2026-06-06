@@ -79,19 +79,14 @@ npm install -g @anthropic-ai/claude-code@latest
    npm -v
    git --version
 
-2. 如果 node 不存在或版本过低，先安装 Node.js 18+ 或当前 LTS。
-
-3. 安装或升级 Claude Code：
-   npm install -g @anthropic-ai/claude-code@latest
-
-4. 检查命令是否可用：
+2. 检查命令是否可用：
    command -v claude
    claude --version
 
-5. 完成 Claude Code 认证，然后执行：
+3. 完成 Claude Code 认证，然后执行：
    claude -p "只回复 OK"
 
-6. 如果 OpenClaw gateway 不是当前 shell 用户启动的，请确认 gateway 运行用户也能访问 claude 命令。
+4. 如果 OpenClaw gateway 不是当前 shell 用户启动的，请确认 gateway 运行用户也能访问 claude 命令。
 
 回报：
 - node / npm / git 版本
