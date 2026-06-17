@@ -1,7 +1,7 @@
 # 第19节 实验手册：OpenClaw 调度 Claude Code 完成 GitHub 安全巡检
 
 > 配套课程：AI 业务流架构师 · 第19节 多 Agent 协作：夜间代码自愈实验室  
-> 操作方式：把每个实验中的 Prompt 复制给龙虾执行  
+> 操作方式：实验零在服务器命令行完成；实验一开始再把 Prompt 交给龙虾执行  
 > 预计耗时：40-60 分钟
 
 ---
@@ -84,69 +84,40 @@ Location: ~/.local/bin/claude
 npm install -g @anthropic-ai/claude-code@latest
 ```
 
-发给龙虾：
+这一步不要发给龙虾执行。请在服务器 SSH / Terminal 里自己完成，尤其是 `settings.json` 里的 API Key，不要通过飞书、聊天窗口或截图暴露。
 
-```text
-请帮我安装并验证 Claude Code。
+在服务器命令行执行：
 
-要求：
-1. 检查基础环境：
-   node -v
-   npm -v
-   git --version
+```bash
+# 1. 检查基础环境
+node -v
+npm -v
+git --version
 
-2. 如果 node 不存在或版本过低，先安装 Node.js 18+ 或当前 LTS。
+# 2. 进入 root 目录并安装 Claude Code
+cd /root
+curl -fsSL https://claude.ai/install.sh | bash
 
-3. 进入 root 目录并安装 Claude Code：
-   cd /root
-   curl -fsSL https://claude.ai/install.sh | bash
+# 3. 如果 install.sh 不可用，再使用 npm 方式
+npm install -g @anthropic-ai/claude-code@latest
 
-4. 如果 install.sh 不可用，再尝试 npm 安装：
-   npm install -g @anthropic-ai/claude-code@latest
-
-5. 确认 claude 命令可用：
-   export PATH="$HOME/.local/bin:$PATH"
-   command -v claude
-   claude --version
-
-6. 创建 Claude Code 配置目录：
-   mkdir -p /root/.claude
-   chmod 700 /root/.claude
-
-7. 编辑配置文件：
-   nano /root/.claude/settings.json
-
-8. 如果使用 Claude 官方登录，按交互式登录完成认证即可。
-   如果使用 Anthropic 兼容中转服务，在 settings.json 中写入以下结构。
-   注意：ANTHROPIC_AUTH_TOKEN 只能写自己的真实值，课堂文档和截图中一律不要暴露完整密钥。
-
-   {
-     "theme": "dark",
-     "env": {
-       "ANTHROPIC_BASE_URL": "https://<your-anthropic-compatible-endpoint>",
-       "ANTHROPIC_AUTH_TOKEN": "<YOUR_API_KEY_DO_NOT_SHARE>",
-       "CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC": "1",
-       "CLAUDE_CODE_ATTRIBUTION_HEADER": "0"
-     }
-   }
-
-9. 设置配置文件权限：
-   chmod 600 /root/.claude/settings.json
-
-10. 执行最小验证：
-   claude -p "只回复 OK"
-
-11. 如果 OpenClaw gateway 不是 root 用户启动的，请确认 gateway 运行用户也能访问 claude 命令和对应配置。
-
-回报：
-- node / npm / git 版本
-- claude 路径
-- claude --version
-- /root/.claude/settings.json 是否存在，权限是否为 600
-- claude -p "只回复 OK" 的结果
-- OpenClaw gateway 是否需要重启
-- 如失败，贴核心报错
+# 4. 确认 claude 命令可用
+export PATH="$HOME/.local/bin:$PATH"
+command -v claude
+claude --version
 ```
+
+创建配置目录：
+
+```bash
+mkdir -p /root/.claude
+chmod 700 /root/.claude
+nano /root/.claude/settings.json
+```
+
+如果使用 Claude 官方登录，按交互式登录完成认证即可。
+
+如果使用 Anthropic 兼容中转服务，在 `settings.json` 中写入下面的结构。注意：`ANTHROPIC_AUTH_TOKEN` 只能写自己的真实值，课程文档、GitHub、飞书消息和截图里都不要出现完整密钥。
 
 `settings.json` 示例说明：
 
@@ -169,6 +140,15 @@ npm install -g @anthropic-ai/claude-code@latest
 - `CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC`：减少非必要网络流量，课堂服务器建议开启。
 - `CLAUDE_CODE_ATTRIBUTION_HEADER`：如中转服务不支持 attribution header，可设为 `"0"`。
 - `/root/.claude/settings.json` 必须设置为 `600`，避免其他用户读取。
+
+保存配置后执行：
+
+```bash
+chmod 600 /root/.claude/settings.json
+claude -p "只回复 OK"
+```
+
+如果 OpenClaw gateway 不是 root 用户启动的，还要确认 gateway 运行用户也能访问同一个 `claude` 命令和对应配置。否则终端里能跑通，OpenClaw 仍然可能调度失败。
 
 通过标准：
 
