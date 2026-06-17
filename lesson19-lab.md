@@ -55,6 +55,8 @@ https://github.com/lemons101/agentic-ai.git
 
 ## 实验零：安装 Claude Code
 
+这一拍的目标不是开始巡检，而是先把“执行者”装好：让 OpenClaw 后面能通过 ACP 调度 Claude Code。
+
 官方文档：
 
 ```text
@@ -62,7 +64,21 @@ https://docs.anthropic.com/en/docs/claude-code/getting-started
 https://code.claude.com/docs/en/installation
 ```
 
-官方 npm 安装命令：
+课堂服务器推荐使用安装脚本：
+
+```bash
+cd /root
+curl -fsSL https://claude.ai/install.sh | bash
+```
+
+安装成功后通常会看到类似信息：
+
+```text
+Claude Code successfully installed
+Location: ~/.local/bin/claude
+```
+
+如果服务器不能访问安装脚本，也可以使用 npm 方式：
 
 ```bash
 npm install -g @anthropic-ai/claude-code@latest
@@ -74,32 +90,90 @@ npm install -g @anthropic-ai/claude-code@latest
 请帮我安装并验证 Claude Code。
 
 要求：
-1. 检查 node、npm、git：
+1. 检查基础环境：
    node -v
    npm -v
    git --version
 
-2. 检查命令是否可用：
+2. 如果 node 不存在或版本过低，先安装 Node.js 18+ 或当前 LTS。
+
+3. 进入 root 目录并安装 Claude Code：
+   cd /root
+   curl -fsSL https://claude.ai/install.sh | bash
+
+4. 如果 install.sh 不可用，再尝试 npm 安装：
+   npm install -g @anthropic-ai/claude-code@latest
+
+5. 确认 claude 命令可用：
+   export PATH="$HOME/.local/bin:$PATH"
    command -v claude
    claude --version
 
-3. 完成 Claude Code 认证，然后执行：
+6. 创建 Claude Code 配置目录：
+   mkdir -p /root/.claude
+   chmod 700 /root/.claude
+
+7. 编辑配置文件：
+   nano /root/.claude/settings.json
+
+8. 如果使用 Claude 官方登录，按交互式登录完成认证即可。
+   如果使用 Anthropic 兼容中转服务，在 settings.json 中写入以下结构。
+   注意：ANTHROPIC_AUTH_TOKEN 只能写自己的真实值，课堂文档和截图中一律不要暴露完整密钥。
+
+   {
+     "theme": "dark",
+     "env": {
+       "ANTHROPIC_BASE_URL": "https://<your-anthropic-compatible-endpoint>",
+       "ANTHROPIC_AUTH_TOKEN": "<YOUR_API_KEY_DO_NOT_SHARE>",
+       "CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC": "1",
+       "CLAUDE_CODE_ATTRIBUTION_HEADER": "0"
+     }
+   }
+
+9. 设置配置文件权限：
+   chmod 600 /root/.claude/settings.json
+
+10. 执行最小验证：
    claude -p "只回复 OK"
 
-4. 如果 OpenClaw gateway 不是当前 shell 用户启动的，请确认 gateway 运行用户也能访问 claude 命令。
+11. 如果 OpenClaw gateway 不是 root 用户启动的，请确认 gateway 运行用户也能访问 claude 命令和对应配置。
 
 回报：
 - node / npm / git 版本
 - claude 路径
 - claude --version
+- /root/.claude/settings.json 是否存在，权限是否为 600
 - claude -p "只回复 OK" 的结果
 - OpenClaw gateway 是否需要重启
 - 如失败，贴核心报错
 ```
 
+`settings.json` 示例说明：
+
+```json
+{
+  "theme": "dark",
+  "env": {
+    "ANTHROPIC_BASE_URL": "https://<your-anthropic-compatible-endpoint>",
+    "ANTHROPIC_AUTH_TOKEN": "<YOUR_API_KEY_DO_NOT_SHARE>",
+    "CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC": "1",
+    "CLAUDE_CODE_ATTRIBUTION_HEADER": "0"
+  }
+}
+```
+
+配置要点：
+
+- `ANTHROPIC_BASE_URL`：Anthropic 兼容接口地址；如果使用官方交互式登录，可不填这一项。
+- `ANTHROPIC_AUTH_TOKEN`：API Key，只能保存在服务器本地配置中，不要写进课件、仓库、飞书消息或截图。
+- `CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC`：减少非必要网络流量，课堂服务器建议开启。
+- `CLAUDE_CODE_ATTRIBUTION_HEADER`：如中转服务不支持 attribution header，可设为 `"0"`。
+- `/root/.claude/settings.json` 必须设置为 `600`，避免其他用户读取。
+
 通过标准：
 
 - `command -v claude` 有明确路径。
+- `/root/.claude/settings.json` 存在，且没有暴露完整密钥。
 - `claude -p "只回复 OK"` 返回 `OK`。
 - OpenClaw 运行用户能访问同一个 `claude` 命令。
 
@@ -174,23 +248,11 @@ registeredBackend: acpx
 healthy: yes
 ```
 
-继续发送：
+到这里先不创建 Claude Code 会话。
 
-```text
-/acp spawn claude --mode persistent --thread off --cwd /srv/openclaw-runner/repos/agentic-ai
-```
+原因：`/acp spawn` 或 `sessions_spawn` 都需要指定 `cwd`，也就是目标仓库路径。目标仓库要到实验三才准备好。
 
-期望返回：
-
-```text
-Spawned ACP session agent:claude:acp:...
-```
-
-记录完整 session-key：
-
-```text
-agent:claude:acp:<uuid>
-```
+本实验只确认一件事：OpenClaw 的 ACPX 后端是健康的，后面可以调度 Claude Code。
 
 ---
 
@@ -300,9 +362,11 @@ report_path
 
 ---
 
-## 实验四：只读试跑
+## 实验四：创建并记录 ACP 会话：只读试跑
 
-先验证链路，不允许修改文件。
+这一步才真正创建 Claude Code ACP 会话，并记录后续补漏投递要用的 `childSessionKey`。
+
+先做只读试跑，不允许修改文件。
 
 发给龙虾：
 
@@ -329,12 +393,19 @@ sessions_spawn(
 
 回报：
 - status
-- childSessionKey
+- childSessionKey，必须是完整的 agent:claude:acp:...
 - pwd
 - git status --short
 - 是否有文件被修改
 - 如失败，贴核心报错
 ```
+
+说明：
+
+- 后台自动化里，这个记录叫 `childSessionKey`。
+- 飞书 slash command 演示里，这个记录叫 `session-key`。
+- 两者本质上都是同一个东西：Claude Code ACP 会话地址，格式是 `agent:claude:acp:<uuid>`。
+- 后续 `sessions_send` 补漏时，必须使用完整值，不要只复制 UUID。
 
 通过标准：
 
@@ -531,7 +602,7 @@ commit：<commit hash>
 准备测试仓库，放入一个明显假密钥：
 
 ```text
-DEMO_API_KEY=sk-demo-123456
+DEMO_API_KEY=REPLACE_WITH_FAKE_DEMO_VALUE
 ```
 
 通过 OpenClaw + Claude Code 完成只读巡检或 dry-run 分析，要求识别风险、给出修复建议和预期 diff，但不要 push。
