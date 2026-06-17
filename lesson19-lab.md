@@ -111,9 +111,9 @@ nano /root/.claude/settings.json
 - `CLAUDE_CODE_ATTRIBUTION_HEADER`：如中转服务不支持 attribution header，可设为 `"0"`。
 - `/root/.claude/settings.json` 必须设置为 `600`，避免其他用户读取。
 
-配置文件可参考这张脱敏示例图：
+配置文件可参考这张示例图：
 
-![Claude API 配置脱敏示例](assets/claude-api-config-redacted.png)
+![Claude API 配置示例](assets/claude-api-config.png)
 
 保存配置后执行：
 
