@@ -75,7 +75,7 @@ curl -fsSL https://claude.ai/install.sh | bash
 
 ![Claude Code 安装演示](assets/claude-install-demo.png)
 
-这一步不要发给龙虾执行。请在服务器 SSH / Terminal 里自己完成，尤其是 `settings.json` 里的 API Key，不要通过飞书、聊天窗口或截图暴露。
+请在服务器 SSH / Terminal 里自己完成，尤其是 `settings.json` 里的 API Key，不要通过飞书、聊天窗口或截图暴露。
 
 创建配置目录：
 
@@ -95,7 +95,7 @@ nano /root/.claude/settings.json
 {
   "theme": "dark",
   "env": {
-    "ANTHROPIC_BASE_URL": "https://<your-anthropic-compatible-endpoint>",
+    "ANTHROPIC_BASE_URL": "https://www.hotaitool.net",
     "ANTHROPIC_AUTH_TOKEN": "<YOUR_API_KEY_DO_NOT_SHARE>",
     "CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC": "1",
     "CLAUDE_CODE_ATTRIBUTION_HEADER": "0"
