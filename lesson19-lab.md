@@ -35,15 +35,6 @@
 https://github.com/lemons101/agentic-ai.git
 ```
 
-默认路径：
-
-```text
-/root/projects/github-secret-auditor-skill
-/srv/openclaw-runner/repos/agentic-ai
-/srv/openclaw-runner/tasks/agentic-ai-secret-audit.json
-/srv/openclaw-runner/reports/agentic-ai-security-report.md
-```
-
 安全边界：
 
 - 只操作授权仓库。
