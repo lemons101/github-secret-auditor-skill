@@ -118,6 +118,10 @@ claude -p "只回复 OK"
 - `claude -p "只回复 OK"` 返回 `OK`。
 - OpenClaw 运行用户能访问同一个 `claude` 命令。
 
+验证通过后参考这张图确认：
+
+![Claude Code 配置验证演示](assets/claude-setup-verify-demo.png)
+
 ---
 
 ## 实验一：安装 github-secret-auditor Skill
