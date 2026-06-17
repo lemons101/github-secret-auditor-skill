@@ -78,12 +78,6 @@ Claude Code successfully installed
 Location: ~/.local/bin/claude
 ```
 
-如果服务器不能访问安装脚本，也可以使用 npm 方式：
-
-```bash
-npm install -g @anthropic-ai/claude-code@latest
-```
-
 这一步不要发给龙虾执行。请在服务器 SSH / Terminal 里自己完成，尤其是 `settings.json` 里的 API Key，不要通过飞书、聊天窗口或截图暴露。
 
 在服务器命令行执行：
@@ -91,17 +85,13 @@ npm install -g @anthropic-ai/claude-code@latest
 ```bash
 # 1. 检查基础环境
 node -v
-npm -v
 git --version
 
 # 2. 进入 root 目录并安装 Claude Code
 cd /root
 curl -fsSL https://claude.ai/install.sh | bash
 
-# 3. 如果 install.sh 不可用，再使用 npm 方式
-npm install -g @anthropic-ai/claude-code@latest
-
-# 4. 确认 claude 命令可用
+# 3. 确认 claude 命令可用
 export PATH="$HOME/.local/bin:$PATH"
 command -v claude
 claude --version
@@ -539,7 +529,7 @@ commit：<commit hash>
 
 ## 常见问题
 
-- `claude: command not found`：检查 `npm config get prefix`，确认 npm 全局 bin 在 PATH 中。
+- `claude: command not found`：检查 `~/.local/bin/claude` 是否存在，并确认 `~/.local/bin` 在 PATH 中。
 - 当前终端能运行 `claude`，OpenClaw 不能：多半是 gateway 运行用户或 PATH 不一致。
 - `claude -p "只回复 OK"` 失败：检查认证、API Key 或中转配置。
 - `/acp doctor` 失败：检查 ACPX 后端配置，并重启 gateway。
