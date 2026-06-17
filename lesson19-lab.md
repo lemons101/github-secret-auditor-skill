@@ -35,6 +35,15 @@
 https://github.com/lemons101/agentic-ai.git
 ```
 
+默认路径：
+
+```text
+/root/projects/github-secret-auditor-skill
+/srv/openclaw-runner/repos/agentic-ai
+/srv/openclaw-runner/tasks/agentic-ai-secret-audit.json
+/srv/openclaw-runner/reports/agentic-ai-security-report.md
+```
+
 安全边界：
 
 - 只操作授权仓库。
@@ -66,7 +75,7 @@ curl -fsSL https://claude.ai/install.sh | bash
 
 ![Claude Code 安装演示](assets/claude-install-demo.png)
 
-请在服务器 SSH / Terminal 里自己完成，尤其是 `settings.json` 里的 API Key，不要通过飞书、聊天窗口或截图暴露。
+这一步不要发给龙虾执行。请在服务器 SSH / Terminal 里自己完成，尤其是 `settings.json` 里的 API Key，不要通过飞书、聊天窗口或截图暴露。
 
 创建配置目录：
 
@@ -86,7 +95,7 @@ nano /root/.claude/settings.json
 {
   "theme": "dark",
   "env": {
-    "ANTHROPIC_BASE_URL": "https://www.hotaitool.net",
+    "ANTHROPIC_BASE_URL": "https://<your-anthropic-compatible-endpoint>",
     "ANTHROPIC_AUTH_TOKEN": "<YOUR_API_KEY_DO_NOT_SHARE>",
     "CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC": "1",
     "CLAUDE_CODE_ATTRIBUTION_HEADER": "0"
@@ -101,6 +110,10 @@ nano /root/.claude/settings.json
 - `CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC`：减少非必要网络流量，课堂服务器建议开启。
 - `CLAUDE_CODE_ATTRIBUTION_HEADER`：如中转服务不支持 attribution header，可设为 `"0"`。
 - `/root/.claude/settings.json` 必须设置为 `600`，避免其他用户读取。
+
+配置文件可参考这张脱敏示例图：
+
+![Claude API 配置脱敏示例](assets/claude-api-config-redacted.png)
 
 保存配置后执行：
 
