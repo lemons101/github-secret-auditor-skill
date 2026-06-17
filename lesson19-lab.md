@@ -71,31 +71,11 @@ cd /root
 curl -fsSL https://claude.ai/install.sh | bash
 ```
 
-安装成功后通常会看到类似信息：
+安装成功后参考这张图确认：
 
-```text
-Claude Code successfully installed
-Location: ~/.local/bin/claude
-```
+![Claude Code 安装演示](assets/claude-install-demo.png)
 
 这一步不要发给龙虾执行。请在服务器 SSH / Terminal 里自己完成，尤其是 `settings.json` 里的 API Key，不要通过飞书、聊天窗口或截图暴露。
-
-在服务器命令行执行：
-
-```bash
-# 1. 检查基础环境
-node -v
-git --version
-
-# 2. 进入 root 目录并安装 Claude Code
-cd /root
-curl -fsSL https://claude.ai/install.sh | bash
-
-# 3. 确认 claude 命令可用
-export PATH="$HOME/.local/bin:$PATH"
-command -v claude
-claude --version
-```
 
 创建配置目录：
 
