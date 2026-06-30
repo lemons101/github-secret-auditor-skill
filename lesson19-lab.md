@@ -22,11 +22,13 @@
 用户给出仓库
 -> OpenClaw 读取 Skill
 -> 准备仓库和任务包
--> sessions_spawn 调度 Claude Code
+-> 检查 active_session_count，获取 single-flight lock
+-> sessions_spawn(mode="run") 调度 Claude Code
 -> Claude Code 巡检 / 修复 / 输出摘要
 -> OpenClaw 验收 Git Diff
--> 必要时 sessions_send 补漏
+-> 必要时 sessions_send 补漏到同一个 childSessionKey
 -> OpenClaw commit / push / 飞书报告
+-> 关闭/回收 child session，释放 lock，active_session_count=0
 ```
 
 默认测试仓库：
@@ -50,6 +52,7 @@ https://github.com/lemons101/agentic-ai.git
 - 不读取真实 `.env`、私钥、Cookie、生产配置和用户个人目录。
 - Claude Code 不 push；push 只由 OpenClaw 验收后执行。
 - 报告只发飞书或写入 `/srv/openclaw-runner/reports`，不要提交进仓库。
+- 同一仓库和分支同一时刻只允许 1 个活动 Claude ACP child session；成功、失败或超时都必须关闭/回收。
 
 ---
 
@@ -229,9 +232,9 @@ openclaw config set plugins.entries.acpx.config.nonInteractivePermissions fail
 
 1. 重启 OpenClaw gateway。
 2. 重新执行 `/acp doctor`。
-3. 重新创建 Claude ACP 会话。
+3. 先关闭/回收旧 Claude ACP 会话，再重新创建新会话。
 
-旧 session 可能沿用旧权限。
+旧 session 可能沿用旧权限，也可能继续占用 ACP child process；不要在旧 session 未回收时直接创建新的 session。
 
 实验结束后建议恢复：
 
@@ -256,7 +259,7 @@ Session send visibility is restricted
 Agent-to-agent messaging is disabled
 ```
 
-看到这些错误：设置配置、重启 gateway、重新创建 session。
+看到这些错误：设置配置、重启 gateway、先回收旧 session，再重新创建 session。
 
 ---
 
@@ -324,7 +327,7 @@ report_path
 
 这一步才真正创建 Claude Code ACP 会话，并记录后续补漏投递要用的 `childSessionKey`。
 
-先做只读试跑，不允许修改文件。
+先做只读试跑，不允许修改文件。创建前必须检查同一 `repo_url + branch + skill` 是否已有活动 session；只有 `active_session_count == 0` 时才允许继续。
 
 发给龙虾：
 
@@ -332,11 +335,13 @@ report_path
 请通过 OpenClaw Sessions API 调度 Claude Code 做只读试跑。
 
 调用要求：
+- 调用前获取 single-flight lock；如果已有活动 child session，跳过本轮，不要再次 spawn
 - runtime="acp"
 - agentId="claude"
 - mode="run"
 - thread=false
 - cwd="/srv/openclaw-runner/repos/agentic-ai"
+- 设置 TTL / deadline_at，避免只读试跑卡住后残留进程
 - prompt="请输出 pwd 和 git status --short，不要修改文件。"
 
 等价形态：
@@ -352,10 +357,12 @@ sessions_spawn(
 回报：
 - status
 - childSessionKey，必须是完整的 agent:claude:acp:...
+- lock_key
+- started_at / deadline_at
 - pwd
 - git status --short
 - 是否有文件被修改
-- 如失败，贴核心报错
+- 如失败，贴核心报错，并确认是否已释放 lock
 ```
 
 说明：
@@ -364,6 +371,7 @@ sessions_spawn(
 - 飞书 slash command 演示里，这个记录叫 `session-key`。
 - 两者本质上都是同一个东西：Claude Code ACP 会话地址，格式是 `agent:claude:acp:<uuid>`。
 - 后续 `sessions_send` 补漏时，必须使用完整值，不要只复制 UUID。
+- 实验四创建的是测试 session，只用于实验五验证补漏投递；实验五结束后必须关闭/回收，不要留给最终巡检复用。
 
 通过标准：
 
@@ -377,7 +385,7 @@ git status --short: 空
 
 ---
 
-## 实验五：验证补漏投递
+## 实验五：验证补漏投递并回收测试会话
 
 发给龙虾：
 
@@ -386,6 +394,7 @@ git status --short: 空
 
 要求：
 - sessionKey 使用完整 agent:claude:acp:...
+- 只能 `sessions_send` 到实验四返回的同一个 childSessionKey，不要重新 `sessions_spawn`
 - 不修改文件
 - 不 push
 
@@ -401,6 +410,9 @@ sessions_send(
 - git status --short
 - 是否有文件被修改
 - 如失败，贴核心报错
+- 测试结束后是否已关闭/回收 child session
+- closed_at
+- active_session_count 是否已回到 0
 ```
 
 注意：`childSessionKey` 是投递目标，不是记忆保证。真正补漏时，prompt 必须带上：
@@ -412,11 +424,15 @@ sessions_send(
 
 不要只写“继续修一下”。
 
+补漏投递验证完成后，必须要求 OpenClaw 调用 Sessions/ACP runtime 提供的关闭、取消或回收能力释放这个测试 `childSessionKey`，并释放 single-flight lock。确认 `active_session_count=0` 后，才进入实验六。
+
 ---
 
 ## 实验六：执行最终安全巡检
 
 只读试跑和补漏投递通过后，执行最终实验。
+
+注意：实验六是正式巡检，会创建正式的 Claude ACP child session；它不能复用实验四/五的测试 session。正式巡检结束、失败、超时或被取消时，OpenClaw 必须关闭/回收本轮 child session，释放 single-flight lock，并确认 `active_session_count=0`。如果无法确认回收完成，本次实验不能算通过。
 
 发给龙虾：
 
@@ -429,10 +445,12 @@ https://github.com/lemons101/agentic-ai.git
 要求：
 1. 全程自动化执行，不要让我手动复制 session、手动执行命令、手动拼接 prompt 或手动验收。
 2. OpenClaw 自动读取 Skill、准备仓库、生成任务包、通过 ACP Sessions API 调度 Claude Code、验收修复、commit、push，并通过飞书汇报。
-3. Claude Code 负责仓库内敏感信息巡检和代码修复；OpenClaw 不要手工替代 Claude Code 修复。
-4. 安全巡检先判断仓库是否存在泄露，再按仓库实际结构做最小安全修复。
-5. 不要把修复固定成 .env.example / README / .gitignore 三件套。
-6. 最终只回复巡检结果、是否修复、是否推送、commit、风险摘要、风险备注和下一步建议。
+3. 调度前必须检查 single-flight lock：同一目标仓库和分支已有活动 child session 时，不要再次 `sessions_spawn`；巡检结束、失败或超时后必须关闭/回收 child session 并释放锁。
+4. Claude Code 负责仓库内敏感信息巡检和代码修复；OpenClaw 不要手工替代 Claude Code 修复。
+5. 安全巡检先判断仓库是否存在泄露，再按仓库实际结构做最小安全修复。
+6. 不要把修复固定成 .env.example / README / .gitignore 三件套。
+7. 最终返回前必须确认本轮 Claude ACP child session 已关闭/回收、single-flight lock 已释放、active_session_count=0；如果无法确认，状态返回 failed 并说明原因。
+8. 最终只回复巡检结果、是否修复、是否推送、commit、会话回收状态、风险摘要、风险备注和下一步建议。
 
 最终回复格式：
 
@@ -442,6 +460,9 @@ https://github.com/lemons101/agentic-ai.git
 调用方式：acp / failed
 是否已推送到 GitHub：yes / no
 commit：<commit hash>
+会话回收：closed / failed / unknown
+active_session_count：0 / <非 0 值或 unknown>
+closed_at：<timestamp or empty>
 修改文件：
 - ...
 风险摘要：
@@ -495,6 +516,8 @@ commit：<commit hash>
 - 工作区不干净
 - Claude Code 无法写文件
 - `sessions_send` visibility / agent-to-agent 权限不足
+- 已有活动 child session，新的巡检被 single-flight lock 跳过
+- Claude Code session 超过 TTL，被取消并回收
 
 ---
 
@@ -507,6 +530,7 @@ commit：<commit hash>
 - `/acp doctor` 返回 healthy。
 - 只读试跑返回正确 `pwd` 和空的 `git status --short`。
 - 最终巡检通过 ACP Sessions API 调度 Claude Code。
+- 调度前检查 single-flight lock；实验结束后 child session 已关闭/回收，active_session_count 回到 0。
 - Claude Code 只在授权仓库内工作。
 - 不读取真实 `.env`、私钥、Cookie、生产配置和用户个人目录。
 - Claude Code 不 push；OpenClaw 验收后才 commit / push。
@@ -523,9 +547,10 @@ commit：<commit hash>
 - `/acp doctor` 失败：检查 ACPX 后端配置，并重启 gateway。
 - `/acp` 在 shell 中失败：正常，`/acp` 只能在飞书 / OpenClaw 对话框执行。
 - `/acp spawn` 失败：检查 `--cwd` 是否存在且为授权仓库。
+- 重复触发巡检但已有活动 session：正常应跳过本轮或等待已有任务，不要再次 `sessions_spawn`。
 - Claude Code 只能分析不能写：检查 ACPX 写入权限和文件系统权限。
-- 改了 `approve-all` 仍不能写：重启 gateway，重新创建 session。
-- `sessions_send` forbidden：检查 `tools.sessions.visibility=all` 和 `tools.agentToAgent.enabled=true`。
+- 改了 `approve-all` 仍不能写：重启 gateway，先关闭/回收旧 session，再重新创建 session。
+- `sessions_send` forbidden：检查 `tools.sessions.visibility=all` 和 `tools.agentToAgent.enabled=true`；如果 session 已丢失，先回收旧状态并释放锁，再重新 spawn。
 - 补漏像忘了上一轮：`sessions_send` prompt 必须显式带上上一轮输出、当前 diff 和缺失项。
 - Skill 仍问“是否确认修改”：说明没有读到 Skill 或默认自动化行为未生效。
 - 报告被提交进仓库：错误，应从 commit 中移除报告文件。

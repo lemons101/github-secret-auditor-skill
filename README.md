@@ -28,12 +28,14 @@
 -> OpenClaw 读取 github-secret-auditor Skill
 -> OpenClaw clone / pull 授权仓库
 -> OpenClaw 生成任务包
+-> OpenClaw 获取 single-flight lock，确认没有活动 child session
 -> OpenClaw 通过 ACP Sessions 调度 Claude Code
 -> Claude Code 在仓库内巡检、修复、验证
 -> Claude Code 输出修改清单、风险摘要、测试结果和 diff 摘要
 -> OpenClaw 验收修复范围与安全边界
 -> OpenClaw commit / push
 -> OpenClaw 发送飞书巡检报告
+-> OpenClaw 关闭/回收 ACP child session 并释放 lock
 ```
 
 ## Agent 分工
@@ -55,6 +57,7 @@
 - 不在仓库内生成或提交 `security-report.md`。
 - 不强制创建 `.env.example`、README、`.gitignore` 三件套；只有修复确实需要时才补充。
 - 不清理 Git 历史，不替用户轮换外部平台凭证。
+- 同一仓库同一分支同一时刻只允许一个活动 ACP child session；每次巡检结束、失败或超时都必须回收会话。
 - 疑似历史泄露会写入风险备注，由用户或安全负责人继续处理。
 
 ## 交付结果

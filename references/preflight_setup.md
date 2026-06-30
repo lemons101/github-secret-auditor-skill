@@ -39,11 +39,11 @@ healthy: yes
 
 应返回完整 `session-key`，例如 `agent:claude:acp:...`。
 
-这一步只用于证明飞书交互链路可用，不是后台 Skill runner 的默认调用方式。
+这一步只用于证明飞书交互链路可用，不是后台 Skill runner 的默认调用方式。演示结束后必须关闭/释放该 persistent 会话；后台巡检禁止使用 persistent 会话。
 
 ## 后台 Sessions API 配置
 
-后台任务不依赖 `/acp ...` 聊天命令，也不需要把 slash command 伪造成 shell 或聊天消息。后台默认使用 Sessions API：
+后台任务不依赖 `/acp ...` 聊天命令，也不需要把 slash command 伪造成 shell 或聊天消息。后台默认使用 Sessions API。调用前必须先获得 `repo_url + branch + skill` 粒度的 single-flight lock，确认没有活动 child session；任务完成、失败或超时后必须关闭/回收 child session 并释放锁：
 
 ```text
 sessions_spawn(runtime="acp", agentId="claude", mode="run", thread=false, cwd=<repo_path>, prompt=<task_prompt>)
