@@ -327,7 +327,11 @@ report_path
 
 这一步才真正创建 Claude Code ACP 会话，并记录后续补漏投递要用的 `childSessionKey`。
 
-先做只读试跑，不允许修改文件。创建前必须检查同一 `repo_url + branch + skill` 是否已有活动 session；只有 `active_session_count == 0` 时才允许继续。
+先做只读试跑，不允许修改文件。创建前必须检查同一 `repo_url + branch + skill` 是否已有活动 session，但不是一看到已有 session 就永远不测：
+
+- 如果已有 session 正在执行当前有效任务，不要抢占，也不要再次 spawn；等待它结束或让用户确认是否取消。
+- 如果已有 session 是上一轮只读测试、已超时、已失败或确认卡住的残留会话，先关闭/取消/回收它，并释放 single-flight lock。
+- 只有确认 `active_session_count == 0` 后，才允许继续创建新的只读试跑 session。
 
 发给龙虾：
 
@@ -335,7 +339,9 @@ report_path
 请通过 OpenClaw Sessions API 调度 Claude Code 做只读试跑。
 
 调用要求：
-- 调用前获取 single-flight lock；如果已有活动 child session，跳过本轮，不要再次 spawn
+- 调用前检查是否已有活动 child session，并判断它是有效任务还是残留会话
+- 有效任务正在跑：跳过本轮或等待，不要再次 spawn
+- 残留/超时/失败 session：先关闭/取消/回收，确认 active=0 后再获取 single-flight lock
 - runtime="acp"
 - agentId="claude"
 - mode="run"
@@ -362,7 +368,7 @@ sessions_spawn(
 - pwd
 - git status --short
 - 是否有文件被修改
-- 如失败，贴核心报错，并确认是否已释放 lock
+- 如失败，贴核心报错，并确认是否已关闭/回收本轮 session、是否已释放 lock
 ```
 
 说明：
