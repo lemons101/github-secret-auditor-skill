@@ -377,7 +377,9 @@ sessions_spawn(
 - 飞书 slash command 演示里，这个记录叫 `session-key`。
 - 两者本质上都是同一个东西：Claude Code ACP 会话地址，格式是 `agent:claude:acp:<uuid>`。
 - 后续 `sessions_send` 补漏时，必须使用完整值，不要只复制 UUID。
-- 实验四创建的是测试 session，只用于实验五验证补漏投递；实验五结束后必须关闭/回收，不要留给最终巡检复用。
+- 实验四创建的是测试 session，只用于实验五验证补漏投递；实验四成功后先临时保留这个 session，不要立刻关闭。
+- 如果不继续做实验五，或者实验四失败、目录不对、工作区不干净，必须立即关闭/回收这个测试 session，并释放 single-flight lock。
+- 实验五结束后必须关闭/回收这个测试 session，不要留给最终巡检复用。
 
 通过标准：
 
@@ -387,7 +389,7 @@ pwd: /srv/openclaw-runner/repos/agentic-ai
 git status --short: 空
 ```
 
-如果 `pwd` 不对或工作区不干净，不进入最终巡检。
+如果 `pwd` 不对或工作区不干净，不进入最终巡检，并立即关闭/回收实验四创建的测试 session。
 
 ---
 
@@ -396,11 +398,12 @@ git status --short: 空
 发给龙虾：
 
 ```text
-请使用上一轮返回的 childSessionKey 做 sessions_send 只读测试。
+请使用实验四返回且仍保持可用的 childSessionKey 做 sessions_send 只读测试。
 
 要求：
 - sessionKey 使用完整 agent:claude:acp:...
-- 只能 `sessions_send` 到实验四返回的同一个 childSessionKey，不要重新 `sessions_spawn`
+- 只能 `sessions_send` 到实验四返回且尚未关闭的同一个 childSessionKey，不要重新 `sessions_spawn`
+- 如果实验四的 childSessionKey 已关闭、丢失或过期，先确认旧 session 已回收，再回到实验四重新做只读试跑
 - 不修改文件
 - 不 push
 
